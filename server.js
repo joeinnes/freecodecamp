@@ -1,31 +1,70 @@
 'use strict';
 
 var express = require('express');
-var routes = require('./app/routes/index.js');
-var mongoose = require('mongoose');
-var passport = require('passport');
-var session = require('express-session');
+const queryString = require('query-string');
 
 var app = express();
-require('dotenv').load();
-require('./app/config/passport')(passport);
 
-mongoose.connect(process.env.MONGO_URI);
+app.get('*', function (req, res) {
+	var query = req.path.substring(1);
+	var queryS = queryString.parse('date=' + query);
+	var queryDate = new Date(query * 1000);
+	if (!isValidDate(queryDate)) {
+		queryDate = new Date(queryS.date);
+	}
 
-app.use('/controllers', express.static(process.cwd() + '/app/controllers'));
-app.use('/public', express.static(process.cwd() + '/public'));
-app.use('/common', express.static(process.cwd() + '/app/common'));
+	if (!isValidDate(queryDate) || query == '') {
+		res.statusCode = 422;
 
-app.use(session({
-	secret: 'secretClementine',
-	resave: false,
-	saveUninitialized: true
-}));
+		let response = {
+			'unix': null,
+			'natural': null
+		}
+		res.send(response);
+		res.end();
+		return;
+	}
 
-app.use(passport.initialize());
-app.use(passport.session());
+	if (!isNaN(query)) {
+		let ts = queryDate;
+		let unixTime = ts.getTime()/1000;
+		let natural = dateToNaturalTime(ts);
+		let response = {
+			'unix': unixTime,
+			'natural': natural
+		}
+		res.send(response);
+		res.end();
+	} else {
+		let ts = queryDate;
+		let unixTime = ts.getTime()/1000;
+		let natural = dateToNaturalTime(ts);
+		let response = {
+			'unix': unixTime,
+			'natural': natural
+		}
+		res.send(response);
+		res.end();
+	}
+});
 
-routes(app, passport);
+function dateToNaturalTime(ts) {
+	const moLookUp = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+	let m = ts.getMonth();
+	let d = ts.getDate();
+	let y = ts.getFullYear();
+
+	m = moLookUp[m];
+
+	return `${m} ${d}, ${y}`;
+}
+
+function isValidDate(d) {
+  if ( Object.prototype.toString.call(d) !== "[object Date]" )
+    return false;
+  return !isNaN(d.getTime());
+}
 
 var port = process.env.PORT || 8080;
 app.listen(port,  function () {
